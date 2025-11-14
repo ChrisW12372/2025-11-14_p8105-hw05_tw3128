@@ -12,6 +12,7 @@ output:
 
 ```{r include = FALSE}
 library(tidyverse)
+library(broom)
 
 set.seed(20251114)
 ```
@@ -81,16 +82,108 @@ df_prob |>
   
 
 
+# Problem Two
 
 
+## one sample t-test for $\mu = 0$
+
+```{r}
+simulate_tt = function(mu, n = 30, sigma = 5, B = 5000){
+  replicate(
+    B, {
+      x <- rnorm(n = n, mean = mu, sd = sigma)
+      tt <- t.test(x, mu = 0, )
+      df_tt_tidy <- tidy(tt)
+      df_estimations <- 
+        tibble(mu_hat = df_tt_tidy$estimate, p_value = df_tt_tidy$p.value)
+    },
+    simplify = FALSE) |>
+    
+    bind_rows() |>
+    mutate(id = row_number()) |>
+    relocate(id)
+}
+
+sim0 <- simulate_tt(0)
+```
 
 
+## when $\mu$ equals other values
+
+```{r}
+mu_values <- 1:6
+
+df_power <-
+  map_dfr(
+    mu_values,
+    function(true_mu){
+      sim <- simulate_tt(true_mu)
+      power <- mean(sim$p_value < 0.05)
+      
+      tibble(
+        true_mu ,
+        power 
+      )
+    }
+  )
+
+df_power |>
+  ggplot(aes(x = true_mu, y = power)) + 
+  geom_line(color = "#6a5acd") + geom_point(size = 2, color = "steelblue") +
+  labs(
+    title = "The Relationship Between Power and Effect Size",
+    x = expression("real " *  mu),
+    y = "power"
+  )
+```
 
 
+* Overall Trend  
+  * The powers of simple t tests increase monotonically when $\mu$ increases from 1 to 6.  
+  
+* Segmented Conditions  
+  * When `$\mu$ = 1`, even though the null hypothesis is wrong, the power of testing is still low.  
+  * With the true mean increases, the power of testing increases sharply.  
 
 
+## are the estimations unbiased or not
 
+```{r}
+mu_values <- 0:6
 
+df_mu_hat <- 
+
+  map_dfr(
+    mu_values,
+    function(true_mu){
+      sim <- simulate_tt(true_mu)
+      avg_mu_hat <- mean(sim$mu_hat)
+      avg_reject <- mean(sim$mu_hat[sim$p_value < 0.05], na.rm = TRUE)
+      
+      tibble(
+        true_mu ,
+        avg_mu_hat,
+        avg_reject
+      )
+    }
+  )
+
+df_mu_hat |>
+  ggplot(aes(x = true_mu, y = avg_mu_hat)) +
+  geom_line(color = "#5a6") + geom_point(size = 2, color = "red")
+
+df_mu_hat |>
+  ggplot(aes(x = true_mu, y = avg_reject)) +
+  geom_abline(intercept = 0, slope = 1, color = "pink") +
+  geom_line(color = "#5a6") + geom_point(size = 2, color = "red") +
+  labs(
+    title = expression("Averege " * hat(mu) * " vs Real Expectations When Significant")
+  )
+```
+
+* No, the average $\mu_hat$ is not equal to the real expectation when significant. Instead, it is systematically larger than the true mean.  
+* This happens because we are conditioning on statistical significance (p < 0.05).
+When μ is small, only samples with unusually large positive estimation errors are likely to produce a significant result and lead to rejection of the null. As a result, the subset of significant samples is biased.  
 
 
 
