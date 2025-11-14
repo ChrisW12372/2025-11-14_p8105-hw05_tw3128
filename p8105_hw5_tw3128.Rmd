@@ -2,17 +2,13 @@
 title: "p8105_hw5_tw3128"
 author: "Chris"
 date: "2025-11-14"
-output: 
-  html_document:
-    toc: true
-    toc_float: true
-    theme: cosmo
-    number_sections: true
+output: github_document
 ---
 
 ```{r include = FALSE}
 library(tidyverse)
 library(broom)
+library(purrr)
 
 set.seed(20251114)
 ```
@@ -181,20 +177,99 @@ df_mu_hat |>
   )
 ```
 
-* No, the average $\mu_hat$ is not equal to the real expectation when significant. Instead, it is systematically larger than the true mean.  
+* No, the average $\mu_(hat)$ is not equal to the real expectation when significant. Instead, it is systematically larger than the true mean.  
 * This happens because we are conditioning on statistical significance (p < 0.05).
 When μ is small, only samples with unusually large positive estimation errors are likely to produce a significant result and lead to rejection of the null. As a result, the subset of significant samples is biased.  
 
 
 
+# Problem Three
+
+```{r}
+df_homicide <- read_csv("data/homicide-data.csv")
+```
 
 
+## create "city_state" and describe the dataset
+
+```{r}
+df_homicide <-
+  df_homicide |>
+  mutate(city_state = paste(city, state, sep = ", "))
+
+df_city_summary <-
+  df_homicide |>
+  group_by(city_state) |>
+  summarise(
+    total_homicide = n(),
+    unsolved_homicide = sum(disposition %in% c("Closed without arrest", "Open/No arrest"))
+  )
+
+df_city_summary
+```
 
 
+The homicide dataset consists of individual-level case records compiled by the Washington Post. Each row represents a single homicide. The dataset includes:  
+  * Demographic Data: name, age, sex, and race  
+  * Location: city, state, latitude and longitude  
+  * Time: reported_date  
+  * Case disposition: whether the case was “Closed by arrest”, “Closed without arrest”, or remains “Open/No arrest”  
+In total, the dataset contains `r nrow(df_homicide)` observations and `r ncol(df_homicide) - 1` variables.  
 
 
+## Baltimore
+
+```{r}
+df_btm <-
+  df_city_summary |>
+  filter(city_state == "Baltimore, MD") 
+
+btm_total <- df_btm$total_homicide
+btm_unsolved <- df_btm$unsolved_homicide
+
+df_tt_btm <- prop.test(btm_unsolved, btm_total) |>
+  broom::tidy() |>
+  select(estimate, conf.low, conf.high) |>
+  janitor::clean_names()
+```
 
 
+## all cities
+
+```{r}
+df_tt_all <-
+  df_city_summary |>
+  mutate(
+    test = map2(unsolved_homicide, total_homicide, ~ prop.test(.x, .y)),
+    tidy_test = map(test, ~ tidy(.x))
+  ) |>
+  unnest(tidy_test) |>
+  select(city_state, estimate, conf.low, conf.high) |>
+  janitor::clean_names()
+```
+
+## plotting
+
+```{r}
+df_plot <-
+  df_tt_all |>
+  arrange(estimate) |>
+  mutate(city_state = factor(city_state, levels = city_state))
+
+ggplot(df_plot, aes(x = city_state, y = estimate)) +
+  geom_point(color = "red") +
+  geom_errorbar(aes(ymin = conf_low, ymax = conf_high), width = 0.2) +
+  labs(
+    title = "Estimated Proportion of Unsolved Homicides by City",
+    x = "City",
+    y = "Estimated Unsolved Proportion"
+  ) +
+   theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+  )
+
+```
 
 
 
