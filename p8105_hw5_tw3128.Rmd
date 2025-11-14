@@ -1,0 +1,153 @@
+---
+title: "p8105_hw5_tw3128"
+author: "Chris"
+date: "2025-11-14"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+    number_sections: true
+---
+
+```{r include = FALSE}
+library(tidyverse)
+
+set.seed(20251114)
+```
+
+
+# Problem One
+
+
+## fixed group size
+
+```{r}
+one_birthday_trial = function(n){
+  birthdays = sample(1:365, size = n, replace = TRUE)
+  repeated_bday <- length(unique(birthdays)) < n
+  repeated_bday
+}
+
+one_birthday_trial(300)
+```
+
+
+## monte carlo simulation
+
+```{r}
+estimate_bdays_prob <- function(n, B = 10000) {
+  if(!is.numeric(n)){
+    stop("n must be numeric.")
+  }
+  mean(
+    replicate(B, one_birthday_trial(n))
+    )
+}
+```
+
+
+```{r}
+df_prob <- 
+  expand_grid(n = 2:50) |>
+  rowwise() |>
+  mutate(prob = estimate_bdays_prob(n)) |>
+  ungroup()
+
+df_prob
+```
+
+
+## plotting
+
+```{r}
+df_prob |>
+  ggplot(aes(x = n, y = prob)) +
+  geom_line(alpha = 0.8, color = "#5a6acd") +
+  labs(
+    title = "Estimated Probability of Birthday Problem (2-50)",
+    x = "n (group size)",
+    y = "Probability"
+  )
+```
+
+* Overall Trend    
+  * The probability of two people sharing the same birthday increased monotonically as n increases from 2 to 50.  
+  * Larger groups generate more possible pairs, which naturally raises the chance of a shared birthday.  
+    
+* Birthday Paradox    
+  * When `n = 23`, the probability is already larger than `0.5`, which feels counterintuitive because 23 is far smaller than 365.  
+  * The reason is that the number of pairs is $\frac{n \times (n - 1)}{2}$, which can be larger than 365 even when n is small.  
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
